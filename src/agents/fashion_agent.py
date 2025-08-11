@@ -3,11 +3,13 @@ from .base_agent import BaseAgent, AgentInput, AgentOutput
 
 class FashionAgent(BaseAgent):
     name = "fashion_agent"
+    output_schema = AgentOutput
 
     def run(self, input: AgentInput) -> AgentOutput:
         mode = os.getenv("LIFEMIRROR_MODE", "mock")
+
         if mode == "mock":
-            return AgentOutput(
+            result = AgentOutput(
                 success=True,
                 data={
                     "style": "casual",
@@ -18,5 +20,8 @@ class FashionAgent(BaseAgent):
                     "overall_rating": 7.5
                 }
             )
-        # TODO: integrate DetectTool + LLM analysis
-        return AgentOutput(success=False, data={}, error="Prod mode not implemented yet")
+        else:
+            result = AgentOutput(success=False, data={}, error="Not implemented")
+
+        self._trace(input.dict(), result.dict())
+        return result
