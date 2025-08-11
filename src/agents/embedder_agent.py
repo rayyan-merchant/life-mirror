@@ -5,11 +5,16 @@ from src.tools.base import ToolInput
 
 class EmbedderAgent(BaseAgent):
     name = "embedder_agent"
+    output_schema = AgentOutput
 
     def run(self, input: AgentInput) -> AgentOutput:
-        mode = os.getenv("LIFEMIRROR_MODE", "mock")
         tool_input = ToolInput(media_id=input.media_id, url=input.url)
         res = EmbedTool().run(tool_input)
+
         if res.success:
-            return AgentOutput(success=True, data=res.data)
-        return AgentOutput(success=False, data={}, error=res.error)
+            result = AgentOutput(success=True, data=res.data)
+        else:
+            result = AgentOutput(success=False, data={}, error=res.error)
+
+        self._trace(input.dict(), result.dict())
+        return result
