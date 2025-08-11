@@ -1,5 +1,6 @@
 import os
 from .base_agent import BaseAgent, AgentInput, AgentOutput
+from src.tools.posture_tool import PostureTool, ToolInput
 
 class PostureAgent(BaseAgent):
     name = "posture_agent"
@@ -12,13 +13,41 @@ class PostureAgent(BaseAgent):
             result = AgentOutput(
                 success=True,
                 data={
-                    "posture": "upright",
-                    "alignment_score": 8.2,
-                    "improvement_tips": ["Relax shoulders", "Keep chin level"]
+                    "alignment_score": 8.5,
+                    "crop_url": input.url,
+                    "keypoints": [],
+                    "tips": ["Relax shoulders", "Straighten spine"]
                 }
             )
-        else:
-            result = AgentOutput(success=False, data={}, error="Not implemented")
+            self._trace(input.dict(), result.dict())
+            return result
 
-        self._trace(input.dict(), result.dict())
-        return result
+        try:
+            tool_res = PostureTool().run(ToolInput(media_id=input.media_id, url=input.url))
+            if not tool_res.success:
+                result = AgentOutput(success=False, data={}, error=tool_res.error)
+                self._trace(input.dict(), result.dict())
+                return result
+
+            # Ensure fields exist
+            alignment = tool_res.data.get("alignment_score")
+            crop_url = tool_res.data.get("crop_url")
+            keypoints = tool_res.data.get("keypoints", [])
+            tips = tool_res.data.get("tips", [])
+
+            result = AgentOutput(
+                success=True,
+                data={
+                    "alignment_score": alignment,
+                    "crop_url": crop_url,
+                    "keypoints": keypoints,
+                    "tips": tips
+                }
+            )
+            self._trace(input.dict(), result.dict())
+            return result
+
+        except Exception as e:
+            result = AgentOutput(success=False, data={}, error=str(e))
+            self._trace(input.dict(), result.dict())
+            return result
