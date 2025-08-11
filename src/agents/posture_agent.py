@@ -3,11 +3,13 @@ from .base_agent import BaseAgent, AgentInput, AgentOutput
 
 class PostureAgent(BaseAgent):
     name = "posture_agent"
+    output_schema = AgentOutput
 
     def run(self, input: AgentInput) -> AgentOutput:
         mode = os.getenv("LIFEMIRROR_MODE", "mock")
+
         if mode == "mock":
-            return AgentOutput(
+            result = AgentOutput(
                 success=True,
                 data={
                     "posture": "upright",
@@ -15,5 +17,8 @@ class PostureAgent(BaseAgent):
                     "improvement_tips": ["Relax shoulders", "Keep chin level"]
                 }
             )
-        # TODO: integrate pose estimation model + LLM interpretation
-        return AgentOutput(success=False, data={}, error="Prod mode not implemented yet")
+        else:
+            result = AgentOutput(success=False, data={}, error="Not implemented")
+
+        self._trace(input.dict(), result.dict())
+        return result
