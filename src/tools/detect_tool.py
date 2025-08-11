@@ -6,6 +6,7 @@ class DetectTool(BaseTool):
 
     def run(self, input: ToolInput) -> ToolResult:
         mode = os.getenv("LIFEMIRROR_MODE", "mock")
+
         if mode == "mock":
             return ToolResult(
                 success=True,
@@ -16,6 +17,20 @@ class DetectTool(BaseTool):
                     ]
                 }
             )
-        # TODO: implement real object detection
-        return ToolResult(success=False, data={}, error="Prod mode not implemented yet")
 
+        # --- PROD MODE ---
+        try:
+            from ultralytics import YOLO
+            model = YOLO("yolov8n.pt")  # small model for speed, can switch to yolov8m/l
+            results = model(input.url)  # URL or local file path
+            detections = []
+            for r in results:
+                for box in r.boxes:
+                    cls_name = r.names[int(box.cls[0])]
+                    score = float(box.conf[0])
+                    xywh = box.xywh[0].tolist()  # [x_center, y_center, width, height]
+                    detections.append({"label": cls_name, "score": score, "bbox": xywh})
+            return ToolResult(success=True, data={"detections": detections})
+
+        except Exception as e:
+            return ToolResult(success=False, data={}, error=str(e))
