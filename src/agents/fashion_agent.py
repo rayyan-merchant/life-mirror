@@ -8,6 +8,8 @@ from .base_agent import BaseAgent, AgentInput, AgentOutput
 from src.tools.detect_tool import DetectTool
 from src.tools.base import ToolInput
 from src.storage.s3 import upload_file
+from sklearn.cluster import KMeans
+
 
 # default fashion classes (can be extended)
 DEFAULT_FASHION_CLASSES = {
@@ -24,17 +26,28 @@ def _rgb_to_hex(rgb):
     b = int(rgb[0]) if len(rgb) == 3 else int(rgb[2])
     return "#{:02x}{:02x}{:02x}".format(r, g, b)
 
+
 def _dominant_color_hex(crop_bgr):
     """
-    Simple, fast heuristic: resize small and compute mean color (BGR).
-    Returns hex string like '#aabbcc'.
+    Extract dominant color via K-Means (k=3) from the given BGR crop.
+    Returns HEX string.
     """
     try:
-        small = cv2.resize(crop_bgr, (50, 50), interpolation=cv2.INTER_AREA)
-        mean_bgr = small.mean(axis=0).mean(axis=0)  # [B, G, R]
-        return _rgb_to_hex(mean_bgr)
+        # Resize for speed
+        small_img = cv2.resize(crop_bgr, (50, 50), interpolation=cv2.INTER_AREA)
+        # Reshape to (num_pixels, 3)
+        pixels = small_img.reshape((-1, 3))
+        # Fit KMeans to find clusters
+        clt = KMeans(n_clusters=3, random_state=42, n_init=10)
+        clt.fit(pixels)
+        # Find the cluster with the largest number of pixels
+        labels, counts = np.unique(clt.labels_, return_counts=True)
+        dominant_cluster_idx = labels[np.argmax(counts)]
+        dominant_color_bgr = clt.cluster_centers_[dominant_cluster_idx]
+        return _rgb_to_hex(dominant_color_bgr)  # _rgb_to_hex already expects BGR
     except Exception:
         return None
+
 
 class FashionAgent(BaseAgent):
     name = "fashion_agent"
