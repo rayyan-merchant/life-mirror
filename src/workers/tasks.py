@@ -81,6 +81,12 @@ def process_media_async(media_id: int, storage_url: str):
 
         logger.info(f"[process_media_async] Completed for media_id={media_id}")
 
+        # Trigger perception history update for the user
+        media = db.query(Media).filter(Media.id == media_id).first()
+        if media and media.user_id:
+            update_perception_history_async.delay(media.user_id)
+
+
     except Exception as e:
         logger.exception(f"process_media_async failed: {e}")
 
