@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field, ValidationError
 from typing import List
 
 class SocialOutput(BaseModel):
-    summary_text: str = Field(..., description="2–3 sentence natural language summary.")
+    summary_text: str = Field(..., description="2–3 sentence natural-language summary.")
     tags: List[str] = Field(..., description="List of 3–8 personality/social style tags.")
     social_score: float = Field(..., ge=0, le=10, description="Social vibe score (0–10).")
 
@@ -58,13 +58,13 @@ class SocialAgent(BaseAgent):
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.7,
-                response_format={"type": "json_object"}  # ✅ Forces JSON output
+                response_format={"type": "json_object"}  # ✅ Force JSON
             )
 
             raw_json = resp.choices[0].message["content"]
 
             try:
-                parsed = SocialOutput.model_validate_json(raw_json)  # ✅ Guardrails via Pydantic
+                parsed = SocialOutput.model_validate_json(raw_json)  # ✅ Guardrails
             except ValidationError as ve:
                 return AgentOutput(success=False, data={}, error=f"Validation failed: {ve}")
 
