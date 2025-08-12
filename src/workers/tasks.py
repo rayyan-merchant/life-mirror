@@ -1,5 +1,7 @@
 from src.services.perception import PerceptionAggregator
 from src.agents.social_agent import SocialAgent, AgentInput
+from src.agents.vibe_compare_agent import VibeComparisonAgent, AgentInput
+
 
 @celery_app.task
 def process_media_async(media_id: int, storage_url: str):
@@ -81,3 +83,31 @@ def process_media_async(media_id: int, storage_url: str):
 
     except Exception as e:
         logger.exception(f"process_media_async failed: {e}")
+
+
+
+@celery_app.task
+def compare_media_vibes_async(media_id_1: int, media_id_2: int):
+    logger.info(f"[compare_media_vibes_async] Start for media_id_1={media_id_1}, media_id_2={media_id_2}")
+    db = next(get_db())
+
+    try:
+        agent = VibeComparisonAgent()
+        result = agent.run(AgentInput(media_id=0, url=None, data={
+            "media_id_1": media_id_1,
+            "media_id_2": media_id_2
+        }))
+
+        if result.success:
+            # Store comparison result in both media items' metadata
+            for mid in (media_id_1, media_id_2):
+                _update_media_metadata(db, mid, {
+                    f"vibe_comparison_with_{media_id_2 if mid == media_id_1 else media_id_1}": result.data
+                })
+        else:
+            logger.error(f"VibeComparisonAgent failed: {result.error}")
+
+        logger.info(f"[compare_media_vibes_async] Completed for {media_id_1} vs {media_id_2}")
+
+    except Exception as e:
+        logger.exception(f"compare_media_vibes_async failed: {e}")
