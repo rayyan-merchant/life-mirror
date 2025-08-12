@@ -1,6 +1,6 @@
 from src.services.perception import PerceptionAggregator
 from src.agents.social_agent import SocialAgent, AgentInput
-from src.agents.vibe_compare_agent import VibeComparisonAgent, AgentInput
+from src.agents.vibe_compare_agent import VibeComparisonAgent, AgentInputfrom src.agents.perception_history_agent import PerceptionHistoryAgent, AgentInput
 
 
 @celery_app.task
@@ -111,3 +111,34 @@ def compare_media_vibes_async(media_id_1: int, media_id_2: int):
 
     except Exception as e:
         logger.exception(f"compare_media_vibes_async failed: {e}")
+
+
+
+@celery_app.task
+def update_perception_history_async(user_id: int):
+    logger.info(f"[update_perception_history_async] Start for user_id={user_id}")
+    db = next(get_db())
+
+    try:
+        agent = PerceptionHistoryAgent()
+        result = agent.run(AgentInput(media_id=0, url=None, data={"user_id": user_id}))
+
+        if result.success:
+            # Store the latest history summary in a special metadata field for the latest media
+            latest_media = (
+                db.query(Media)
+                .filter(Media.user_id == user_id)
+                .order_by(Media.created_at.desc())
+                .first()
+            )
+            if latest_media:
+                _update_media_metadata(db, latest_media.id, {
+                    "history_summary": result.data
+                })
+        else:
+            logger.error(f"PerceptionHistoryAgent failed: {result.error}")
+
+        logger.info(f"[update_perception_history_async] Completed for user_id={user_id}")
+
+    except Exception as e:
+        logger.exception(f"update_perception_history_async failed: {e}")
