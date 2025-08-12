@@ -18,7 +18,9 @@ app.include_router(media.router, prefix="/media", tags=["media"])
 # New perception route
 app.include_router(perception.router, prefix="/media", tags=["perception"])
 
+
 app.include_router(vibe_compare.router, prefix="/compare", tags=["compare"])
+
 
 @app.get("/health")
 async def health_check():
