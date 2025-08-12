@@ -1,37 +1,5 @@
-import os
-from celery import Celery
-from sqlalchemy.orm import Session
-from src.db.session import get_db
-from src.db.models import Media
-from src.agents.face_agent import FaceAgent
-from src.agents.posture_agent import PostureAgent
-from src.agents.fashion_agent import FashionAgent
-from src.agents.detect_agent import DetectAgent
-from src.agents.embed_agent import EmbedAgent
-from src.utils.logging import logger
-
-celery_app = Celery("lifemirror")
-celery_app.conf.broker_url = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
-celery_app.conf.result_backend = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
-
-
-def _update_media_metadata(db: Session, media_id: int, patch: dict):
-    """
-    Merge patch dict into media.metadata JSON.
-    """
-    media = db.query(Media).filter(Media.id == media_id).first()
-    if not media:
-        return
-    metadata = media.metadata or {}
-    for k, v in patch.items():
-        if isinstance(v, list):
-            metadata.setdefault(k, []).extend(v)
-        else:
-            metadata[k] = v
-    media.metadata = metadata
-    db.add(media)
-    db.commit()
-
+from src.services.perception import PerceptionAggregator
+from src.agents.social_agent import SocialAgent, AgentInput
 
 @celery_app.task
 def process_media_async(media_id: int, storage_url: str):
@@ -39,11 +7,10 @@ def process_media_async(media_id: int, storage_url: str):
     db = next(get_db())
 
     try:
-        # Run agents sequentially — you can parallelize with LangGraph later
+        # Run agents sequentially
         face_res = FaceAgent().run({"media_id": media_id, "url": storage_url})
         logger.info(f"FaceAgent output: {face_res.dict()}")
         if face_res.success:
-            # Store face crop URLs
             face_crops = []
             for f in face_res.data.get("faces", []):
                 if f.get("crop_url"):
@@ -90,6 +57,25 @@ def process_media_async(media_id: int, storage_url: str):
         logger.info(f"EmbedAgent output: {embed_res.dict()}")
         if embed_res.success:
             _update_media_metadata(db, media_id, {"embedding": embed_res.data.get("embedding")})
+
+        # --- Step 11: Build perception profile ---
+        agg = PerceptionAggregator(db)
+        perception_profile = agg.build_profile(media_id)
+
+        # --- Step 12: Social Intelligence Agent ---
+        social_agent = SocialAgent()
+        social_result = social_agent.run(
+            AgentInput(
+                media_id=media_id,
+                url=None,
+                data={"perception_data": perception_profile}
+            )
+        )
+
+        if social_result.success:
+            _update_media_metadata(db, media_id, {"social": social_result.data})
+        else:
+            _update_media_metadata(db, media_id, {"social": {"error": social_result.error}})
 
         logger.info(f"[process_media_async] Completed for media_id={media_id}")
 
