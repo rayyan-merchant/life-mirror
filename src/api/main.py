@@ -4,7 +4,7 @@ from src.db.session import engine
 from src.db.models import Base
 from src.api.routes import vibe_compare
 from src.api.routes import history
-
+from src.api.routes import fixit
 
 app = FastAPI(title="LifeMirror API")
 
@@ -23,6 +23,7 @@ app.include_router(vibe_compare.router, prefix="/compare", tags=["compare"])
 
 app.include_router(history.router, prefix="/history", tags=["history"])
 
+app.include_router(fixit.router, prefix="/improvement", tags=["fixit"])
 
 @app.get("/health")
 async def health_check():
