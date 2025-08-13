@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from src.db.session import get_db
 from src.agents.public_feed_agent import PublicFeedAgent
+from src.core.rate_limit import rl_general
+
 
 router = APIRouter()
 
