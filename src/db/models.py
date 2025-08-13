@@ -1,3 +1,4 @@
+from sqlalchemy import Boolean, DateTime
 from sqlalchemy import Column, String, Integer, Text, JSON, BigInteger, TIMESTAMP, Boolean, ForeignKey, Float
 from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy.ext.declarative import declarative_base
@@ -6,17 +7,21 @@ import uuid
 
 Base = declarative_base()
 
+
 class User(Base):
     __tablename__ = "users"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    email = Column(String(255), unique=True, index=True, nullable=True)
-    public_alias = Column(String(80), nullable=True)  # alias shown instead of real name
-    opt_in_public_analysis = Column(Boolean, nullable=False, server_default="false")
+    email = Column(String(255), unique=True)
+    public_alias = Column(String(80))
+    opt_in_public_analysis = Column(Boolean, nullable=False, default=False)
+    password_hash = Column(Text)
+    is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(TIMESTAMP, server_default='now()')
+    last_login = Column(DateTime)
 
     # Relationship to media
     media = relationship("Media", back_populates="user")
-
+    
 
 class Media(Base):
     __tablename__ = 'media'
