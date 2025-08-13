@@ -1,6 +1,9 @@
 from src.services.perception import PerceptionAggregator
 from src.agents.social_agent import SocialAgent, AgentInput
 from src.agents.vibe_compare_agent import VibeComparisonAgent, AgentInputfrom src.agents.perception_history_agent import PerceptionHistoryAgent, AgentInput
+from src.agents.notification_agent import NotificationAgent
+from src.agents.base_agent import AgentInput
+from src.db.models import User
 
 
 @celery_app.task
@@ -148,3 +151,21 @@ def update_perception_history_async(user_id: int):
 
     except Exception as e:
         logger.exception(f"update_perception_history_async failed: {e}")
+
+
+
+@celery_app.task
+def check_notifications_async():
+    logger.info("[check_notifications_async] Starting periodic notification check...")
+    db = next(get_db())
+    users = db.query(User).all()
+
+    for u in users:
+        try:
+            NotificationAgent().run(AgentInput(data={"user_id": str(u.id)}))
+        except Exception as e:
+            logger.exception(f"Notification check failed for user {u.id}: {e}")
+
+    logger.info("[check_notifications_async] Done.")
+
+
