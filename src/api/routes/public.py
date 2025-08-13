@@ -5,7 +5,7 @@ from src.agents.public_feed_agent import PublicFeedAgent
 
 router = APIRouter()
 
-@router.get("/feed")
+@router.get("/feed", dependencies=[Depends(rl_general())])
 def public_feed(
     limit: int = Query(20, le=100),
     offset: int = Query(0, ge=0),
@@ -35,7 +35,7 @@ def public_leaderboard(limit: int = Query(10, le=50), db: Session = Depends(get_
     agent = PublicFeedAgent(db)
     return {"items": agent.get_leaderboard(limit=limit)}
 
-@router.get("/leaderboard")
+@router.get("/leaderboard", dependencies=[Depends(rl_general())])
 def leaderboard(
     limit: int = Query(20, le=100),
     offset: int = Query(0, ge=0),
