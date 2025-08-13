@@ -1,6 +1,9 @@
 from fastapi import APIRouter, HTTPException, Query
 from typing import Optional
 from src.agents.reverse_analysis_agent import ReverseAnalysisAgent, AgentInput
+from src.db.session import get_db
+from src.db.models import Media
+from src.workers.tasks import _update_media_metadata
 
 router = APIRouter()
 
@@ -23,5 +26,16 @@ def reverse_analysis(
 
     if not res.success:
         raise HTTPException(status_code=400, detail=res.error)
+
+    # Store result in metadata of latest media
+    db = next(get_db())
+    latest_media = (
+        db.query(Media)
+        .filter(Media.user_id == user_id)
+        .order_by(Media.created_at.desc())
+        .first()
+    )
+    if latest_media:
+        _update_media_metadata(db, latest_media.id, {"reverse_analysis": res.data})
 
     return res.data
