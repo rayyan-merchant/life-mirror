@@ -29,6 +29,8 @@ app = FastAPI(title="LifeMirror API")
 @app.on_event("startup")
 def create_tables():
     Base.metadata.create_all(bind=engine)
+    await init_rate_limiter()
+
 
 # Existing routes
 app.include_router(media.router, prefix="/media", tags=["media"])
@@ -76,13 +78,6 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return resp
 
 app.add_middleware(SecurityHeadersMiddleware)
-
-# Automatically create missing tables from models on startup
-@app.on_event("startup")
-async def startup():
-    Base.metadata.create_all(bind=engine)
-    # NEW: init rate limiter
-    await init_rate_limiter()
 
 # Routers
 app.include_router(media.router, prefix="/media", tags=["media"])
