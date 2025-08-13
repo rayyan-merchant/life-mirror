@@ -1,23 +1,50 @@
 import os
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel, Field, ValidationError
 from src.agents.base_agent import BaseAgent, AgentInput, AgentOutput
 from src.services.perception import PerceptionAggregator
 from src.db.session import get_db
 from src.agents.perception_history_agent import PerceptionHistoryAgent
+from src.db.models import Media
+from sqlalchemy.orm import Session
+
 
 class FixitOutput(BaseModel):
     quick_tips: List[str] = Field(..., description="3–5 quick, actionable improvement tips.")
     detailed_plan: str = Field(..., description="Detailed strategy for improving social vibe.")
     focus_areas: List[str] = Field(..., description="Key areas to work on.")
 
+
 class FixitAgent(BaseAgent):
     name = "fixit_agent"
     output_schema = FixitOutput
 
+    def _get_recent_perception(self, db: Session, user_id: int, recent_limit: int = 5):
+        """
+        Fetch perception data from the last `recent_limit` media items for the user.
+        """
+        recent_media = (
+            db.query(Media)
+            .filter(Media.user_id == user_id)
+            .order_by(Media.created_at.desc())
+            .limit(recent_limit)
+            .all()
+        )
+
+        return [
+            {
+                "media_id": m.id,
+                "timestamp": m.created_at.isoformat(),
+                "social": m.metadata.get("social", {})
+            }
+            for m in recent_media
+            if m.metadata and "social" in m.metadata
+        ]
+
     def run(self, input: AgentInput) -> AgentOutput:
         mode = os.getenv("LIFEMIRROR_MODE", "mock")
         user_id = input.data["user_id"]
+        recent_limit = input.data.get("recent_limit", 5)
 
         if mode == "mock":
             result = AgentOutput(success=True, data={
@@ -34,27 +61,41 @@ class FixitAgent(BaseAgent):
 
         # --- PROD MODE ---
         db = next(get_db())
-        agg = PerceptionAggregator(db)
-        perception_data = agg.build_profile(input.data["media_id"])
 
-        # Get history trends for better suggestions
+        # Fetch recent perception (last N uploads)
+        recent_perception = self._get_recent_perception(db, user_id, recent_limit=recent_limit)
+
+        if not recent_perception:
+            return AgentOutput(success=False, data={}, error="No recent perception data found.")
+
+        # Get history trends to identify improved areas
         history_agent = PerceptionHistoryAgent()
         history_res = history_agent.run(AgentInput(media_id=0, url=None, data={"user_id": user_id}))
         history_data = history_res.data if history_res.success else {}
 
+        improved_areas = set(history_data.get("improvement_tags", []))
+
+        # Filter out improvement areas from focus
+        filtered_data = {
+            "recent_perception": recent_perception,
+            "history_summary": {
+                "trend_summary": history_data.get("trend_summary", ""),
+                "decline_tags": history_data.get("decline_tags", []),
+                "score_trend": history_data.get("score_trend", []),
+            },
+            "ignore_areas": list(improved_areas)
+        }
+
         prompt = f"""
         You are a social improvement assistant.
-        Using the latest perception data and optional history trends below,
+        Using the recent perception data (last {recent_limit} media items) and history trends below,
         generate a JSON object with:
-        - quick_tips: list of 3–5 short, actionable tips
+        - quick_tips: 3–5 short, actionable tips
         - detailed_plan: a clear paragraph of improvement strategies
-        - focus_areas: list of key attributes to work on
+        - focus_areas: areas to work on, excluding any in 'ignore_areas'.
 
-        Perception data:
-        {perception_data}
-
-        History trends:
-        {history_data}
+        Data:
+        {filtered_data}
         """
 
         try:
