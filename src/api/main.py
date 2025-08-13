@@ -7,6 +7,7 @@ from src.api.routes import history
 from src.api.routes import fixit
 from src.api.routes import reverse_analysis
 from src.api.routes import vibe_analysis
+from src.api.routes import full_chain
 
 app = FastAPI(title="LifeMirror API")
 
@@ -30,6 +31,8 @@ app.include_router(fixit.router, prefix="/improvement", tags=["fixit"])
 app.include_router(reverse_analysis.router, prefix="/analysis", tags=["reverse_analysis"])
 
 app.include_router(vibe_analysis.router, prefix="/analysis", tags=["vibe_analysis"])
+
+app.include_router(full_chain.router, prefix="/analysis", tags=["full_chain"])
 
 @app.get("/health")
 async def health_check():
