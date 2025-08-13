@@ -6,5 +6,8 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP DEFAULT now()
 );
 
+CREATE INDEX IF NOT EXISTS idx_users_opt_in
+    ON users (opt_in_public_analysis);
+
 ALTER TABLE media
     ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id) ON DELETE CASCADE;
