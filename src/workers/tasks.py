@@ -4,9 +4,10 @@ from src.agents.vibe_compare_agent import VibeComparisonAgent, AgentInputfrom sr
 from src.agents.notification_agent import NotificationAgent
 from src.agents.base_agent import AgentInput
 from src.db.models import User
+from celery import shared_task
 
 
-@celery_app.task
+@celery_app.task(rate_limit="30/m", time_limit=180, soft_time_limit=150)
 def process_media_async(media_id: int, storage_url: str):
     logger.info(f"[process_media_async] Start for media_id={media_id}, url={storage_url}")
     db = next(get_db())
@@ -95,7 +96,7 @@ def process_media_async(media_id: int, storage_url: str):
 
 
 
-@celery_app.task
+@celery_app.task(rate_limit="10/m", time_limit=120, soft_time_limit=90)
 def compare_media_vibes_async(media_id_1: int, media_id_2: int):
     logger.info(f"[compare_media_vibes_async] Start for media_id_1={media_id_1}, media_id_2={media_id_2}")
     db = next(get_db())
@@ -123,7 +124,7 @@ def compare_media_vibes_async(media_id_1: int, media_id_2: int):
 
 
 
-@celery_app.task
+@celery_app.task(rate_limit="60/m", time_limit=90, soft_time_limit=60)
 def update_perception_history_async(user_id: int):
     logger.info(f"[update_perception_history_async] Start for user_id={user_id}")
     db = next(get_db())
@@ -154,7 +155,7 @@ def update_perception_history_async(user_id: int):
 
 
 
-@celery_app.task
+@celery_app.task(rate_limit="6/h", time_limit=120, soft_time_limit=90)
 def check_notifications_async():
     logger.info("[check_notifications_async] Starting periodic notification check...")
     db = next(get_db())
