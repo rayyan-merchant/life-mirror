@@ -13,6 +13,7 @@ from src.api.routes import social_graph
 from src.api.routes import notifications
 from src.api.routes import public
 from src.api.routes import auth
+from src.api.routes import storage
 
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -57,6 +58,9 @@ app.include_router(notifications.router, prefix="/notifications", tags=["notific
 app.include_router(public.router, prefix="/public", tags=["public"])
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
+
+app.include_router(storage.router, prefix="/storage", tags=["storage"])
+
 
 # --- Security & CORS ---
 app.add_middleware(
