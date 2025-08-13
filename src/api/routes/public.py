@@ -35,4 +35,24 @@ def public_leaderboard(limit: int = Query(10, le=50), db: Session = Depends(get_
     agent = PublicFeedAgent(db)
     return {"items": agent.get_leaderboard(limit=limit)}
 
+@router.get("/leaderboard")
+def leaderboard(
+    limit: int = Query(20, le=100),
+    offset: int = Query(0, ge=0),
+    days: int = Query(None, ge=1),
+    search: str = Query(None),
+    sort_by: str = Query("highest", regex="^(highest|newest|random|trending)$"),
+    db: Session = Depends(get_db)
+):
+    agent = PublicFeedAgent(db)
+    return {
+        "items": agent.get_leaderboard(
+            limit=limit,
+            offset=offset,
+            days=days,
+            search_query=search,
+            sort_by=sort_by
+        )
+    }
+
 
