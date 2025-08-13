@@ -1,14 +1,20 @@
+import os
 from sqlalchemy.orm import Session
 from src.db.models import Media, User
 from src.utils.logging import logger
 from datetime import datetime, timedelta
+import random
+import uuid
 
 class PublicFeedAgent:
     def __init__(self, db: Session):
         self.db = db
+        self.mock_mode = os.getenv("LIFEMIRROR_MODE") == "mock"
 
     def get_feed(self, limit=20, days=30):
-        """Get latest perception results from opted-in users within X days."""
+        if self.mock_mode:
+            return self._mock_feed(limit)
+
         cutoff_date = datetime.utcnow() - timedelta(days=days)
 
         items = (
@@ -35,7 +41,9 @@ class PublicFeedAgent:
         return feed
 
     def get_leaderboard(self, limit=10):
-        """Rank opted-in users by latest percentile score from social graph."""
+        if self.mock_mode:
+            return self._mock_leaderboard(limit)
+
         users = (
             self.db.query(User)
             .filter(User.opt_in_public_analysis == True)
@@ -64,3 +72,40 @@ class PublicFeedAgent:
 
         leaderboard.sort(key=lambda x: x["percentile"], reverse=True)
         return leaderboard[:limit]
+
+    # -----------------------
+    # Mock Data Generators
+    # -----------------------
+    def _mock_feed(self, limit):
+        mock_aliases = ["Alex", "Sam", "Riya", "Jordan", "Maya", "Omar"]
+        mock_tags = [["confident", "stylish"], ["approachable"], ["energetic", "funny"]]
+        now = datetime.utcnow()
+
+        return [
+            {
+                "user_id": str(uuid.uuid4()),
+                "alias": random.choice(mock_aliases),
+                "media_id": str(uuid.uuid4()),
+                "thumbnail_url": f"https://placehold.co/200x200?text={i}",
+                "created_at": now - timedelta(hours=i),
+                "perception": {
+                    "percentile": {"overall": random.randint(50, 99)},
+                    "tags": random.choice(mock_tags)
+                }
+            }
+            for i in range(limit)
+        ]
+
+    def _mock_leaderboard(self, limit):
+        mock_aliases = ["Alex", "Sam", "Riya", "Jordan", "Maya", "Omar"]
+        leaderboard = []
+        for _ in range(limit):
+            leaderboard.append({
+                "user_id": str(uuid.uuid4()),
+                "alias": random.choice(mock_aliases),
+                "percentile": random.randint(60, 99),
+                "media_id": str(uuid.uuid4()),
+                "thumbnail_url": "https://placehold.co/200x200"
+            })
+        leaderboard.sort(key=lambda x: x["percentile"], reverse=True)
+        return leaderboard
