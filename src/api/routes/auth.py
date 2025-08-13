@@ -22,7 +22,7 @@ class AuthOut(BaseModel):
     refresh_token: str
     token_type: str = "bearer"
 
-@router.post("/register", response_model=AuthOut)
+@router.post("/register", dependencies=[Depends(rl_auth())], response_model=AuthOut)
 def register(data: RegisterIn, db: Session = Depends(get_db)):
     existing = db.query(User).filter(User.email == data.email).first()
     if existing:
@@ -48,7 +48,7 @@ class LoginIn(BaseModel):
     email: EmailStr
     password: str
 
-@router.post("/login", response_model=AuthOut)
+@router.post("/login", dependencies=[Depends(rl_auth())], response_model=AuthOut)
 def login(data: LoginIn, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == data.email).first()
     if not user or not user.password_hash or not verify_password(data.password, user.password_hash):
@@ -64,7 +64,7 @@ def login(data: LoginIn, db: Session = Depends(get_db)):
 class RefreshIn(BaseModel):
     refresh_token: str
 
-@router.post("/refresh", response_model=AuthOut)
+@router.post("/refresh", dependencies=[Depends(rl_auth())], response_model=AuthOut)
 def refresh_tokens(body: RefreshIn = Body(...)):
     payload = decode_token(body.refresh_token)
     if payload.get("type") != "refresh":
