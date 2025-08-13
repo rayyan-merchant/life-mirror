@@ -10,7 +10,7 @@ from src.api.routes import vibe_analysis
 from src.api.routes import full_chain
 from src.api.routes import social_graph
 from src.api.routes import notifications
-
+from src.api.routes import public
 
 app = FastAPI(title="LifeMirror API")
 
@@ -40,6 +40,8 @@ app.include_router(full_chain.router, prefix="/analysis", tags=["full_chain"])
 app.include_router(social_graph.router, prefix="/graph", tags=["social_graph"])
 
 app.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
+
+app.include_router(public.router, prefix="/public", tags=["public"])
 
 @app.get("/health")
 async def health_check():
