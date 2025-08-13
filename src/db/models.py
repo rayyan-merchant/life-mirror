@@ -29,6 +29,7 @@ class Media(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     media_type = Column(String(10))
     storage_url = Column(Text, nullable=False)
+    storage_key = Column(String(512))
     thumbnail_url = Column(Text)
     keyframes = Column(JSON)
     size_bytes = Column(BigInteger)
