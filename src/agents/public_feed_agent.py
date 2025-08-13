@@ -95,38 +95,67 @@ class PublicFeedAgent:
 
 
 
-    def get_leaderboard(self, limit=10):
+    def get_leaderboard(
+        self,
+        limit=20,
+        offset=0,
+        days=None,
+        search_query=None,
+        sort_by="highest"
+    ):
         if self.mock_mode:
-            return self._mock_leaderboard(limit)
-
-        users = (
-            self.db.query(User)
+            return self._mock_leaderboard(limit, search_query=search_query, sort_by=sort_by)
+    
+        q = (
+            self.db.query(User, func.max(Media.created_at).label("last_upload"), Media.metadata)
+            .join(Media, Media.user_id == User.id)
             .filter(User.opt_in_public_analysis == True)
-            .all()
+            .group_by(User.id, Media.metadata)
         )
-
-        leaderboard = []
-        for user in users:
-            latest_media = (
-                self.db.query(Media)
-                .filter(Media.user_id == user.id)
-                .order_by(Media.created_at.desc())
-                .first()
+    
+        if days is not None:
+            cutoff_date = datetime.utcnow() - timedelta(days=days)
+            q = q.filter(Media.created_at >= cutoff_date)
+    
+        if search_query:
+            like_query = f"%{search_query}%"
+            q = q.filter(
+                or_(
+                    User.public_alias.ilike(like_query),
+                    Media.metadata['social']['tags'].astext.ilike(like_query)
+                )
             )
-            if latest_media and latest_media.metadata:
-                social_data = latest_media.metadata.get("social", {})
-                percentile = social_data.get("percentile", {}).get("overall")
-                if percentile is not None:
-                    leaderboard.append({
-                        "user_id": str(user.id),
-                        "alias": user.public_alias or "Anonymous",
-                        "percentile": percentile,
-                        "media_id": str(latest_media.id),
-                        "thumbnail_url": latest_media.thumbnail_url
-                    })
+    
+        # Sorting
+        if sort_by == "highest":
+            q = q.order_by(Media.metadata['social']['percentile']['overall'].desc().nullslast())
+        elif sort_by == "newest":
+            q = q.order_by(func.max(Media.created_at).desc())
+        elif sort_by == "random":
+            q = q.order_by(func.random())
+        elif sort_by == "trending":
+            q = q.order_by(
+                (Media.metadata['social']['percentile']['overall'].cast(Float) +
+                 (100 - func.extract('epoch', now() - func.max(Media.created_at)) / 3600) * 0.1)
+                .desc().nullslast()
+            )
+    
+        q = q.offset(offset).limit(limit)
+        items = q.all()
+    
+        leaderboard = []
+        for user, last_upload, metadata in items:
+            social = metadata.get("social") if metadata else {}
+            leaderboard.append({
+                "user_id": str(user.id),
+                "alias": user.public_alias or "Anonymous",
+                "percentile": social.get("percentile", {}).get("overall"),
+                "tags": social.get("tags", []),
+                "last_upload": last_upload
+            })
+    
+        return leaderboard
 
-        leaderboard.sort(key=lambda x: x["percentile"], reverse=True)
-        return leaderboard[:limit]
 
     # -----------------------
     # Mock Data Generators
@@ -177,16 +206,40 @@ class PublicFeedAgent:
         return feed[:limit]
 
 
-    def _mock_leaderboard(self, limit):
+    def _mock_leaderboard(self, limit, search_query=None, sort_by="highest"):
         mock_aliases = ["Alex", "Sam", "Riya", "Jordan", "Maya", "Omar"]
+        mock_tags = [["confident", "stylish"], ["approachable"], ["energetic", "funny"]]
+        now = datetime.utcnow()
+    
         leaderboard = []
-        for _ in range(limit):
-            leaderboard.append({
+        for i in range(limit * 2):
+            alias = random.choice(mock_aliases)
+            tags = random.choice(mock_tags)
+            percentile = random.randint(50, 99)
+    
+            item = {
                 "user_id": str(uuid.uuid4()),
-                "alias": random.choice(mock_aliases),
-                "percentile": random.randint(60, 99),
-                "media_id": str(uuid.uuid4()),
-                "thumbnail_url": "https://placehold.co/200x200"
-            })
-        leaderboard.sort(key=lambda x: x["percentile"], reverse=True)
-        return leaderboard
+                "alias": alias,
+                "percentile": percentile,
+                "tags": tags,
+                "last_upload": now - timedelta(days=random.randint(0, 30))
+            }
+    
+            if search_query:
+                sq = search_query.lower()
+                if sq not in alias.lower() and not any(sq in t.lower() for t in tags):
+                    continue
+    
+            leaderboard.append(item)
+    
+        if sort_by == "highest":
+            leaderboard.sort(key=lambda x: x["percentile"], reverse=True)
+        elif sort_by == "newest":
+            leaderboard.sort(key=lambda x: x["last_upload"], reverse=True)
+        elif sort_by == "random":
+            random.shuffle(leaderboard)
+        elif sort_by == "trending":
+            leaderboard.sort(key=lambda x: x["percentile"] + (100 - (now - x["last_upload"]).total_seconds() / 3600) * 0.1, reverse=True)
+    
+        return leaderboard[:limit]
+    
