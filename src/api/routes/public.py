@@ -12,6 +12,8 @@ def public_feed(
     days: int = Query(None, ge=1),
     min_percentile: int = Query(None, ge=0, le=100),
     tags: list[str] = Query(None),
+    search: str = Query(None),
+    sort_by: str = Query("newest", regex="^(newest|highest|random|trending)$"),
     db: Session = Depends(get_db)
 ):
     agent = PublicFeedAgent(db)
@@ -21,7 +23,9 @@ def public_feed(
             offset=offset,
             days=days,
             min_percentile=min_percentile,
-            tags=tags
+            tags=tags,
+            search_query=search,
+            sort_by=sort_by
         )
     }
 
