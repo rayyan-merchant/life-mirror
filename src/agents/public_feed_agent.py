@@ -11,34 +11,47 @@ class PublicFeedAgent:
         self.db = db
         self.mock_mode = os.getenv("LIFEMIRROR_MODE") == "mock"
 
-    def get_feed(self, limit=20, days=30):
+    def get_feed(self, limit=20, offset=0, days=None, min_percentile=None, tags=None):
         if self.mock_mode:
             return self._mock_feed(limit)
-
-        cutoff_date = datetime.utcnow() - timedelta(days=days)
-
-        items = (
+    
+        q = (
             self.db.query(Media, User)
             .join(User, Media.user_id == User.id)
             .filter(User.opt_in_public_analysis == True)
-            .filter(Media.created_at >= cutoff_date)
-            .order_by(Media.created_at.desc())
-            .limit(limit)
-            .all()
         )
-
+    
+        if days is not None:
+            cutoff_date = datetime.utcnow() - timedelta(days=days)
+            q = q.filter(Media.created_at >= cutoff_date)
+    
+        if tags:
+            # Metadata JSON filter for tags — Postgres specific
+            for tag in tags:
+                q = q.filter(Media.metadata['social']['tags'].astext.contains(tag))
+    
+        q = q.order_by(Media.created_at.desc()).offset(offset).limit(limit)
+        items = q.all()
+    
         feed = []
         for media, user in items:
+            social = media.metadata.get("social") if media.metadata else {}
+            percentile = social.get("percentile", {}).get("overall")
+    
+            if min_percentile is not None and (percentile is None or percentile < min_percentile):
+                continue
+    
             feed.append({
                 "user_id": str(user.id),
                 "alias": user.public_alias or "Anonymous",
                 "media_id": str(media.id),
                 "thumbnail_url": media.thumbnail_url,
                 "created_at": media.created_at,
-                "perception": media.metadata.get("social") if media.metadata else {},
+                "perception": social,
             })
-
+    
         return feed
+
 
     def get_leaderboard(self, limit=10):
         if self.mock_mode:
