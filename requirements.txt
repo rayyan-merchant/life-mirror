@@ -1,0 +1,29 @@
+fastapi
+uvicorn[standard]
+pydantic
+sqlalchemy
+psycopg2-binary
+python-dotenv          # .env loading
+langchain
+langgraph             # if available via pip
+openai                # or openrouter for LLM calls
+guardrails
+langsmith-sdk         # or the official LangSmith library
+dspy
+boto3                 # AWS S3/MinIO integration
+python-multipart      # for form uploads in FastAPI
+uvicorn
+aiofiles              # for file handling in FastAPI
+redis                 # for Celery/RQ broker
+celery                # or dramatiq/RQ for task queue
+opencv-python         # OpenCV for image processing
+mediapipe             # for face/pose landmarks
+torch                 # required by many CV models (YOLOv8)
+ultralytics           # for YOLOv8 object detection
+ffmpeg-python         # video keyframe extraction (via ffmpeg)
+sentence-transformers # for CLIP/text embeddings
+transformers          # LLM model support (LLama etc.)
+Pillow                # image manipulation
+weaviate-client       # if Weaviate vector DB is used
+qdrant-client         # if Qdrant is used
+pinecone-client       # if Pinecone is used
