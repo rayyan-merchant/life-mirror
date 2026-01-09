@@ -17,7 +17,7 @@ This repository contains the backend services, analysis pipeline, media ingestio
 - Analysis history + notifications
 - Auth + consent + privacy controls
 - Background processing with Celery
-- S3/MinIO object storage
+- MinIO object storage
 
 ---
 
@@ -27,7 +27,7 @@ This repository contains the backend services, analysis pipeline, media ingestio
 - **Orchestration:** LangGraph
 - **Models:** Vision + Embeddings + LLMs
 - **Database:** Postgres + pgvector
-- **Object Storage:** MinIO / S3
+- **Object Storage:** MinIO
 - **Workers:** Celery + Redis
 
 ---
